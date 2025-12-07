@@ -1,45 +1,129 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
+ * SmartTracker - Track Your Expenses Smartly
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import SplashScreen from './src/screens/SplashScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import PermissionsScreen from './src/screens/PermissionsScreen';
+import BiometricLockScreen from './src/screens/BiometricLockScreen';
+import HomeScreen from './src/screens/HomeScreen';
+import ManualExpenseScreen from './src/screens/ManualExpenseScreen';
+import TransactionHistoryScreen from './src/screens/TransactionHistoryScreen';
+
+type RootStackParamList = {
+  Splash: undefined;
+  Onboarding: undefined;
+  Permissions: undefined;
+  BiometricSetup: undefined;
+  BiometricLock: undefined;
+  Home: undefined;
+  ManualExpense: undefined;
+  TransactionHistory: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const ONBOARDING_COMPLETED_KEY = '@onboarding_completed';
+const BIOMETRIC_ENABLED_KEY = '@biometric_enabled';
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const onboardingCompleted = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+      const biometricEnabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+
+      if (!onboardingCompleted) {
+        setInitialRoute('Splash');
+      } else if (biometricEnabled === 'true') {
+        setInitialRoute('BiometricLock');
+      } else {
+        setInitialRoute('Home');
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      setInitialRoute('Splash');
+    }
+  };
+
+  if (!initialRoute) {
+    return null; // Or a loading screen
+  }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName={initialRoute}
+            screenOptions={{
+              headerShown: false,
+              animation: 'fade',
+            }}
+          >
+            <Stack.Screen name="Splash" component={SplashScreenWrapper} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreenWrapper} />
+            <Stack.Screen name="Permissions" component={PermissionsScreenWrapper} />
+            <Stack.Screen name="BiometricSetup" component={BiometricSetupWrapper} />
+            <Stack.Screen name="BiometricLock" component={BiometricLockWrapper} />
+            <Stack.Screen name="ManualExpense" component={ManualExpenseScreen} />
+            <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
+            <Stack.Screen name="Home" component={HomeScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
+// Screen Wrappers with Navigation
+const SplashScreenWrapper = ({ navigation }: any) => (
+  <SplashScreen onFinish={() => navigation.replace('Onboarding')} />
+);
+
+const OnboardingScreenWrapper = ({ navigation }: any) => (
+  <OnboardingScreen onComplete={() => navigation.replace('Permissions')} />
+);
+
+const PermissionsScreenWrapper = ({ navigation }: any) => (
+  <PermissionsScreen onComplete={() => navigation.replace('BiometricSetup')} />
+);
+
+const BiometricSetupWrapper = ({ navigation }: any) => {
+  const handleComplete = async () => {
+    await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+    navigation.replace('Home');
+  };
 
   return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
+    <BiometricLockScreen
+      onSuccess={handleComplete}
+      onSkip={handleComplete}
+      isSetup={true}
+    />
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+const BiometricLockWrapper = ({ navigation }: any) => (
+  <BiometricLockScreen
+    onSuccess={() => navigation.replace('Home')}
+    isSetup={false}
+  />
+);
 
 export default App;
