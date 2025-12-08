@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Platform, Alert, ActivityIndicator } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { SecondaryButton, PrimaryButton } from '../components/Buttons';
 import { FeatureItem } from '../components/FeatureItem';
@@ -7,12 +7,18 @@ import { IconBadge } from '../components/IconBadge';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { fontSizes, fontWeights } from '../theme/typography';
+import { ingestSms } from '../services/smsIngestion';
+import { useAppDispatch } from '../store/hooks';
+import { setSmsTransactions } from '../store/transactionsSlice';
 
 interface PermissionsScreenProps {
   onComplete: () => void;
 }
 
 const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => {
+  const [isLoadingSms, setIsLoadingSms] = useState(false);
+  const dispatch = useAppDispatch();
+
   const requestSmsPermission = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -25,11 +31,6 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
         const requestResult = await request(PERMISSIONS.ANDROID.READ_SMS);
         
         if (requestResult === RESULTS.GRANTED) {
-          Alert.alert(
-            'Permission Granted',
-            'SmartTracker can now read your transaction SMS to track expenses automatically.',
-            [{ text: 'OK' }]
-          );
           return true;
         } else if (requestResult === RESULTS.DENIED) {
           Alert.alert(
@@ -65,9 +66,44 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
     }
   };
 
+  const autoReadSms = async () => {
+    setIsLoadingSms(true);
+    try {
+      console.log('Auto-reading SMS after permission grant...');
+      const transactions = await ingestSms();
+      console.log(`Loaded ${transactions.length} transactions automatically`);
+      
+      // Dispatch to Redux store
+      dispatch(setSmsTransactions(transactions));
+      
+      if (transactions.length > 0) {
+        Alert.alert(
+          'Success!',
+          `Found ${transactions.length} financial transactions from your SMS inbox. They're ready to track!`,
+          [{ text: 'Great!' }]
+        );
+      }
+    } catch (error) {
+      console.error('Failed to auto-read SMS:', error);
+    } finally {
+      setIsLoadingSms(false);
+    }
+  };
+
   const handleContinue = async () => {
     const granted = await requestSmsPermission();
-    onComplete();
+    
+    if (granted) {
+      // Automatically read SMS after permission is granted
+      await autoReadSms();
+      Alert.alert(
+        'Permission Granted',
+        'SmartTracker can now read your transaction SMS to track expenses automatically.',
+        [{ text: 'Continue', onPress: onComplete }]
+      );
+    } else {
+      onComplete();
+    }
   };
 
   const handleSkip = () => {
@@ -104,7 +140,14 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
 
       <View style={styles.buttonContainer}>
         <SecondaryButton label="Skip for Now" onPress={handleSkip} style={styles.buttonSpacing} />
-        <PrimaryButton label="Allow SMS Access" onPress={handleContinue} />
+        <PrimaryButton 
+          label={isLoadingSms ? "Loading SMS..." : "Allow SMS Access"} 
+          onPress={handleContinue}
+          disabled={isLoadingSms}
+        />
+        {isLoadingSms && (
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.sm }} />
+        )}
       </View>
     </View>
   );

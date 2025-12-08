@@ -1,26 +1,31 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { fontSizes, fontWeights } from '../theme/typography';
-import { sampleTransactions, TransactionItem } from '../data/transactions';
-import { getStoredSmsTransactions, initializeSmsListener } from '../services/smsStorage';
+import { getStoredSmsTransactions } from '../services/smsStorage';
 import { SecondaryButton } from '../components/Buttons';
+import { Toast } from '../components/Toast';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { setSmsTransactions, setManualTransactions, deleteManualTransaction } from '../store/transactionsSlice';
+import { selectAllTransactions } from '../store/selectors';
 
 interface FilterState {
   month: string; // YYYY-MM or ''
   category: string;
   bank: string;
+  source: string; // 'sms', 'manual', or ''
 }
 
 const formatAmount = (value: number) => {
@@ -32,69 +37,106 @@ const formatAmount = (value: number) => {
 const formatDate = (iso: string) => iso;
 
 const TransactionHistoryScreen: React.FC = () => {
-  const [filters, setFilters] = useState<FilterState>({ month: '', category: '', bank: '' });
-  const [transactions, setTransactions] = useState<TransactionItem[]>(sampleTransactions);
+  const dispatch = useAppDispatch();
+  const allTransactions = useAppSelector(selectAllTransactions);
+  const [filters, setFilters] = useState<FilterState>({ month: '', category: '', bank: '', source: '' });
+  
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
 
-  useEffect(() => {
-    const loadSms = async () => {
-      try {
-        const stored = await getStoredSmsTransactions();
-        const mapped: TransactionItem[] = stored.map((t, idx) => ({
-          id: `sms-${idx}-${t.date}`,
-          title: t.description.slice(0, 40) || 'SMS Transaction',
-          amount: t.type === 'debit' ? -Math.abs(t.amount) : Math.abs(t.amount),
-          category: t.type === 'debit' ? 'Expense' : 'Income',
-          bank: t.bank,
-          date: t.date,
-          source: 'sms',
-          notes: t.description,
-        }));
-        setTransactions((prev) => [...mapped, ...prev]);
-      } catch (error) {
-        console.warn('Failed to read SMS transactions', error);
-      }
-    };
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
-    loadSms();
-    initializeSmsListener();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, [])
+  );
+
+  const loadTransactions = async () => {
+    try {
+      // Load SMS transactions
+      const sms = await getStoredSmsTransactions();
+      dispatch(setSmsTransactions(sms));
+
+      // Load manual transactions
+      const manualData = await AsyncStorage.getItem('@manual_transactions');
+      const manual = manualData ? JSON.parse(manualData) : [];
+      dispatch(setManualTransactions(manual));
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
+    }
+  };
 
   const months = useMemo(() => {
     const unique = new Set<string>();
-    transactions.forEach((t) => unique.add(t.date.slice(0, 7)));
+    allTransactions.forEach((t) => unique.add(t.date.slice(0, 7)));
     return Array.from(unique).sort().reverse();
-  }, [transactions]);
+  }, [allTransactions]);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
-    transactions.forEach((t) => unique.add(t.category));
+    allTransactions.forEach((t) => unique.add(t.category));
     return Array.from(unique).sort();
-  }, [transactions]);
+  }, [allTransactions]);
 
   const banks = useMemo(() => {
     const unique = new Set<string>();
-    transactions.forEach((t) => unique.add(t.bank));
+    allTransactions.forEach((t) => {
+      if (t.bank) unique.add(t.bank);
+    });
     return Array.from(unique).sort();
-  }, [transactions]);
+  }, [allTransactions]);
 
   const filtered = useMemo(() => {
-    return transactions.filter((t) => {
+    return allTransactions.filter((t) => {
       const matchesMonth = filters.month ? t.date.startsWith(filters.month) : true;
       const matchesCategory = filters.category ? t.category === filters.category : true;
-      const matchesBank = filters.bank ? t.bank === filters.bank : true;
-      return matchesMonth && matchesCategory && matchesBank;
+      const matchesBank = filters.bank ? (t.bank && t.bank === filters.bank) : true;
+      const matchesSource = filters.source ? t.source === filters.source : true;
+      return matchesMonth && matchesCategory && matchesBank && matchesSource;
     });
-  }, [filters, transactions]);
+  }, [filters, allTransactions]);
 
-  const handleDelete = (item: TransactionItem) => {
-    Alert.alert('Delete transaction', `Delete ${item.title}?`, [{ text: 'OK' }]);
+  const handleDelete = async (item: any) => {
+    if (item.source === 'manual') {
+      // Direct delete without confirmation dialog
+      try {
+        // Delete from Redux
+        dispatch(deleteManualTransaction(item.id));
+        
+        // Delete from AsyncStorage
+        const existingData = await AsyncStorage.getItem('@manual_transactions');
+        if (existingData) {
+          const transactions = JSON.parse(existingData);
+          const updated = transactions.filter((t: any) => t.id !== item.id);
+          await AsyncStorage.setItem('@manual_transactions', JSON.stringify(updated));
+        }
+        
+        showToast('✓ Transaction deleted', 'success');
+      } catch (error) {
+        console.error('Failed to delete transaction:', error);
+        showToast('Failed to delete transaction', 'error');
+      }
+    } else {
+      showToast('SMS transactions cannot be deleted', 'info');
+    }
   };
 
-  const handleEdit = (item: TransactionItem) => {
-    Alert.alert('Edit transaction', `Edit ${item.title} (wire up form)`, [{ text: 'OK' }]);
+  const handleEdit = (item: any) => {
+    if (item.source === 'manual') {
+      showToast('Edit feature coming soon', 'info');
+    } else {
+      showToast('SMS transactions cannot be edited', 'info');
+    }
   };
 
-  const renderActions = (item: TransactionItem) => (
+  const renderActions = (item: any) => (
     <View style={styles.actionsRow}>
       <RectButton style={[styles.actionButton, styles.deleteButton]} onPress={() => handleDelete(item)}>
         <Text style={styles.actionText}>Delete</Text>
@@ -105,20 +147,21 @@ const TransactionHistoryScreen: React.FC = () => {
     </View>
   );
 
-  const renderItem = ({ item }: { item: TransactionItem }) => (
+  const renderItem = ({ item }: { item: any }) => (
     <Swipeable renderRightActions={() => renderActions(item)}>
       <View style={styles.card}>
         <View style={styles.cardRow}>
           <View style={styles.cardTextGroup}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.meta}>{item.category} · {item.bank} · {formatDate(item.date)}</Text>
+            <Text style={styles.title}>{item.description}</Text>
+            <Text style={styles.meta}>
+              {item.category}{item.bank ? ` · ${item.bank}` : ''} · {formatDate(item.date)}
+            </Text>
             <Text style={styles.source}>{item.source === 'sms' ? 'From SMS' : 'Manual entry'}</Text>
           </View>
           <Text style={[styles.amount, item.amount < 0 ? styles.amountNegative : styles.amountPositive]}>
             {formatAmount(item.amount)}
           </Text>
         </View>
-        {item.notes ? <Text style={styles.notes}>{item.notes}</Text> : null}
       </View>
     </Swipeable>
   );
@@ -132,7 +175,7 @@ const TransactionHistoryScreen: React.FC = () => {
         ListHeaderComponent={
           <View style={styles.filters}>
             <Text style={styles.screenTitle}>Transaction History</Text>
-            <Text style={styles.subtitle}>Filter by month, category, or bank. Swipe items to edit or delete.</Text>
+            <Text style={styles.subtitle}>Filter by month, category, bank, or source. Swipe items to edit or delete.</Text>
 
             <View style={styles.filterRow}>
               <View style={styles.filterColumn}>
@@ -184,15 +227,39 @@ const TransactionHistoryScreen: React.FC = () => {
               </View>
             </View>
 
+            <View style={styles.filterRow}>
+              <View style={styles.filterColumn}>
+                <Text style={styles.filterLabel}>Source</Text>
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={filters.source}
+                    onValueChange={(value) => setFilters((prev) => ({ ...prev, source: value }))}
+                    dropdownIconColor={colors.textTertiary}
+                  >
+                    <Picker.Item label="All" value="" />
+                    <Picker.Item label="From SMS" value="sms" />
+                    <Picker.Item label="Manual Entry" value="manual" />
+                  </Picker>
+                </View>
+              </View>
+            </View>
+
             <SecondaryButton
               label="Clear Filters"
-              onPress={() => setFilters({ month: '', category: '', bank: '' })}
+              onPress={() => setFilters({ month: '', category: '', bank: '', source: '' })}
               style={styles.clearButton}
             />
           </View>
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={renderItem}
+      />
+      
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

@@ -17,11 +17,17 @@ import { ParsedTransaction } from '../services/smsParser';
 import { testSmsReading, requestSmsPermission } from '../services/smsTestUtils';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { setSmsTransactions } from '../store/transactionsSlice';
+import { selectAllTransactions } from '../store/selectors';
 
 export const SmsTestScreen = () => {
+  const dispatch = useAppDispatch();
+  const storeState = useAppSelector(state => state.transactions);
+  const smsTransactions = storeState.smsTransactions;
+  
   const [hasPermissions, setHasPermissions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [listenerActive, setListenerActive] = useState(false);
 
@@ -68,7 +74,7 @@ export const SmsTestScreen = () => {
       console.log('Loading historical SMS...');
       const txns = await ingestSms();
       console.log(`Loaded ${txns.length} transactions`);
-      setTransactions(txns);
+      dispatch(setSmsTransactions(txns));
       Alert.alert(
         'SMS Loaded',
         `Found ${txns.length} financial transactions from your SMS inbox.${txns.length === 0 ? '\n\nIf you have SMS messages, try running diagnostics.' : ''}`
@@ -84,7 +90,7 @@ export const SmsTestScreen = () => {
   const loadStoredTransactions = async () => {
     try {
       const stored = await getStoredSmsTransactions();
-      setTransactions(stored);
+      dispatch(setSmsTransactions(stored));
     } catch (error) {
       console.error('Failed to load stored transactions:', error);
     }
@@ -201,18 +207,18 @@ export const SmsTestScreen = () => {
 
             <View style={styles.statsContainer}>
               <Text style={styles.statsText}>
-                Total Transactions: {transactions.length}
+                Total SMS Transactions: {smsTransactions.length}
               </Text>
               <Text style={styles.statsText}>
-                Credits: {transactions.filter(t => t.type === 'credit').length}
+                Credits: {smsTransactions.filter(t => t.type === 'credit').length}
               </Text>
               <Text style={styles.statsText}>
-                Debits: {transactions.filter(t => t.type === 'debit').length}
+                Debits: {smsTransactions.filter(t => t.type === 'debit').length}
               </Text>
             </View>
 
             <FlatList
-              data={transactions}
+              data={smsTransactions}
               keyExtractor={(item, index) => `${item.date}-${index}`}
               renderItem={renderTransaction}
               contentContainerStyle={styles.listContent}

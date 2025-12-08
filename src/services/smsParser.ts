@@ -17,6 +17,25 @@ export interface ParsedTransaction {
 }
 
 const BANK_SENDER_PREFIXES = [
+  'AXISBK',
+  'HDFCBK',
+  'ICICIB',
+  'SBIINB',
+  'KOTAKB',
+  'PNBSMS',
+  'BOISMS',
+  'YESBK',
+  'IDFCFB',
+  'INDUSB',
+  'CITIBK',
+  'SCBANK',
+  'HSBC',
+  'DEUTSC',
+  'RBLBNK',
+  'AUBANK',
+  'FEDBK',
+  'KRVYBNK',
+  'TMBBK',
   'AXIS',
   'HDFC',
   'ICICI',
@@ -28,18 +47,29 @@ const BANK_SENDER_PREFIXES = [
   'IDFC',
   'INDUS',
   'CANBNK',
-  'UNION',
-  'AXISBK',
-  'HDFCBK',
-  'CITIBK',
+  'UNIONB',
+  'UNBINB',
+  'BARODA',
+  'INDIAN',
+  'MAHBNK',
+  'IOBCHN',
+  'UCOBK',
+  'BANDHN',
+  'PAYTM',
+  'GOOGLEPAY',
+  'PHONEPE',
 ];
 
-const BANK_NAMES = ['AXIS', 'HDFC', 'ICICI', 'SBI', 'KOTAK', 'PNB', 'BOB', 'YES', 'IDFC', 'INDUS', 'CANARA', 'UNION', 'CITI'];
+const BANK_NAMES = ['AXIS', 'HDFC', 'ICICI', 'SBI', 'KOTAK', 'PNB', 'BOB', 'YES', 'IDFC', 'INDUS', 'CANARA', 'UNION', 'CITI', 'STANDARD CHARTERED', 'HSBC', 'DEUTSCHE', 'RBL', 'AU BANK', 'FEDERAL', 'KARVY', 'TMB', 'BARODA', 'INDIAN BANK', 'MAHINDRA', 'IOB', 'UCO', 'BANDHAN', 'PAYTM', 'GOOGLE PAY', 'PHONEPE'];
 
-const AMOUNT_REGEX = /(INR|Rs\.?|RS\.?|INR\.|₹)\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/i;
-const DEBIT_HINTS = /(debited|spent|purchase|withdrawn|payment|txn\s*debited|dr\b|debit)/i;
-const CREDIT_HINTS = /(credited|received|deposit|refund|refunded|salary|cr\b|credit)/i;
+// Enhanced amount regex to handle lakhs, thousands, and various formats
+const AMOUNT_REGEX = /(INR|Rs\.?|RS\.?|INR\.|₹)\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/gi;
+const DEBIT_HINTS = /(debited|spent|purchase|withdrawn|payment|paid|txn\s*debited|dr\b|debit|atm\s*wd|transferred|sent|emi|bill|charged)/i;
+const CREDIT_HINTS = /(credited|received|deposit|refund|refunded|salary|received|cr\b|credit|cashback|interest|dividend)/i;
 const DATE_REGEX = /(\d{4}[-\/](?:0[1-9]|1[0-2])[-\/](?:0[1-9]|[12]\d|3[01]))|(\b(?:0[1-9]|[12]\d|3[01])[-\/.](?:0[1-9]|1[0-2])[-\/.](?:\d{2,4})\b)/;
+
+// Keywords to filter out recharge transactions
+const RECHARGE_KEYWORDS = /(recharge|prepaid|mobile\s*recharge|mobile\s*top[-\s]?up|topup|top\s*up|dth\s*recharge|fastag|toll|airtime)/i;
 
 const normalizeAmount = (value: string): number | null => {
   const cleaned = value.replace(/,/g, '').trim();
@@ -95,8 +125,16 @@ const isLikelyBankSender = (sender?: string): boolean => {
 
 export const parseTransactionSms = (sms: RawSms): ParsedTransaction | null => {
   const body = sms.body || '';
-  const amountMatch = body.match(AMOUNT_REGEX);
-  const amount = amountMatch ? normalizeAmount(amountMatch[2]) : null;
+  
+  // Skip recharge transactions
+  if (RECHARGE_KEYWORDS.test(body)) {
+    return null;
+  }
+  
+  // Extract all amounts and use the first significant one
+  const amountMatches = Array.from(body.matchAll(AMOUNT_REGEX));
+  const amount = amountMatches.length > 0 ? normalizeAmount(amountMatches[0][2]) : null;
+  
   const type = detectType(body);
 
   if (!amount || !type) return null; // Not finance or could not parse
@@ -105,12 +143,19 @@ export const parseTransactionSms = (sms: RawSms): ParsedTransaction | null => {
   const dateRaw = dateMatch ? dateMatch[0] : null;
   const bank = detectBank(sms.sender, body);
 
+  // Extract better description: merchant name or transaction type
+  let description = body.slice(0, 180);
+  const merchantMatch = body.match(/(at|to|from)\s+([A-Z0-9\s]{3,30})/i);
+  if (merchantMatch) {
+    description = merchantMatch[2].trim();
+  }
+
   return {
     amount,
     type,
     bank,
     date: normalizeDate(dateRaw, sms.timestamp),
-    description: body.slice(0, 180),
+    description,
     sender: sms.sender,
     raw: sms,
   };
