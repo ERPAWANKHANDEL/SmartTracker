@@ -18,6 +18,7 @@ import BiometricLockScreen from './src/screens/BiometricLockScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ManualExpenseScreen from './src/screens/ManualExpenseScreen';
 import TransactionHistoryScreen from './src/screens/TransactionHistoryScreen';
+import { SmsTestScreen } from './src/screens/SmsTestScreen';
 
 type RootStackParamList = {
   Splash: undefined;
@@ -28,6 +29,7 @@ type RootStackParamList = {
   Home: undefined;
   ManualExpense: undefined;
   TransactionHistory: undefined;
+  SmsTest: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -83,6 +85,7 @@ function App() {
             <Stack.Screen name="BiometricLock" component={BiometricLockWrapper} />
             <Stack.Screen name="ManualExpense" component={ManualExpenseScreen} />
             <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
+            <Stack.Screen name="SmsTest" component={SmsTestScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
           </Stack.Navigator>
         </NavigationContainer>

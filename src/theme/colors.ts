@@ -5,10 +5,12 @@ export const colors = {
   background: '#F7FAFC',
   mutedBackground: '#F0F4F8',
   text: '#2D3748',
+  textPrimary: '#2D3748',
   textSecondary: '#4A5568',
   textTertiary: '#718096',
   textQuaternary: '#A0AEC0',
   border: '#E2E8F0',
   success: '#22C55E',
   warning: '#F59E0B',
+  error: '#EF4444',
 };

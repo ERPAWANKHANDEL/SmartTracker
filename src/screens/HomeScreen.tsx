@@ -59,6 +59,12 @@ const HomeScreen: React.FC = () => {
           onPress={() => navigation.navigate('ManualExpense' as never)}
           style={styles.addButton}
         />
+
+        <SecondaryButton
+          label="📱 SMS Test Screen"
+          onPress={() => navigation.navigate('SmsTest' as never)}
+          style={styles.smsTestButton}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -187,7 +193,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addButton: {
-    marginTop: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  smsTestButton: {
+    marginTop: spacing.md,
   },
 });
 

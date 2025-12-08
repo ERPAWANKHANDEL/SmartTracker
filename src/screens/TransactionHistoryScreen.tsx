@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { fontSizes, fontWeights } from '../theme/typography';
 import { sampleTransactions, TransactionItem } from '../data/transactions';
+import { getStoredSmsTransactions, initializeSmsListener } from '../services/smsStorage';
 import { SecondaryButton } from '../components/Buttons';
 
 interface FilterState {
@@ -32,33 +33,58 @@ const formatDate = (iso: string) => iso;
 
 const TransactionHistoryScreen: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>({ month: '', category: '', bank: '' });
+  const [transactions, setTransactions] = useState<TransactionItem[]>(sampleTransactions);
+
+  useEffect(() => {
+    const loadSms = async () => {
+      try {
+        const stored = await getStoredSmsTransactions();
+        const mapped: TransactionItem[] = stored.map((t, idx) => ({
+          id: `sms-${idx}-${t.date}`,
+          title: t.description.slice(0, 40) || 'SMS Transaction',
+          amount: t.type === 'debit' ? -Math.abs(t.amount) : Math.abs(t.amount),
+          category: t.type === 'debit' ? 'Expense' : 'Income',
+          bank: t.bank,
+          date: t.date,
+          source: 'sms',
+          notes: t.description,
+        }));
+        setTransactions((prev) => [...mapped, ...prev]);
+      } catch (error) {
+        console.warn('Failed to read SMS transactions', error);
+      }
+    };
+
+    loadSms();
+    initializeSmsListener();
+  }, []);
 
   const months = useMemo(() => {
     const unique = new Set<string>();
-    sampleTransactions.forEach((t) => unique.add(t.date.slice(0, 7)));
+    transactions.forEach((t) => unique.add(t.date.slice(0, 7)));
     return Array.from(unique).sort().reverse();
-  }, []);
+  }, [transactions]);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
-    sampleTransactions.forEach((t) => unique.add(t.category));
+    transactions.forEach((t) => unique.add(t.category));
     return Array.from(unique).sort();
-  }, []);
+  }, [transactions]);
 
   const banks = useMemo(() => {
     const unique = new Set<string>();
-    sampleTransactions.forEach((t) => unique.add(t.bank));
+    transactions.forEach((t) => unique.add(t.bank));
     return Array.from(unique).sort();
-  }, []);
+  }, [transactions]);
 
   const filtered = useMemo(() => {
-    return sampleTransactions.filter((t) => {
+    return transactions.filter((t) => {
       const matchesMonth = filters.month ? t.date.startsWith(filters.month) : true;
       const matchesCategory = filters.category ? t.category === filters.category : true;
       const matchesBank = filters.bank ? t.bank === filters.bank : true;
       return matchesMonth && matchesCategory && matchesBank;
     });
-  }, [filters]);
+  }, [filters, transactions]);
 
   const handleDelete = (item: TransactionItem) => {
     Alert.alert('Delete transaction', `Delete ${item.title}?`, [{ text: 'OK' }]);
