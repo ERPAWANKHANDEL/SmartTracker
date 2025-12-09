@@ -1,97 +1,330 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 💰 SmartTracker
 
-# Getting Started
+<div align="center">
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+**AI-Powered Expense Tracking Made Simple**
 
-## Step 1: Start Metro
+[![React Native](https://img.shields.io/badge/React%20Native-0.82.1-blue.svg)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)]()
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+*Automatically track your expenses through SMS, visualize spending patterns, and manage your budget with ease.*
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Tech Stack](#-tech-stack) • [Troubleshooting](#-troubleshooting)
 
-```sh
-# Using npm
+</div>
+
+---
+
+## 📋 Overview
+
+**SmartTracker** is a modern React Native mobile application that revolutionizes personal finance management by automatically tracking expenses through SMS messages. With AI-powered SMS parsing, biometric security, and beautiful data visualizations, managing your money has never been easier.
+
+## ✨ Features
+
+### 🤖 Smart Automation
+- **Automatic SMS Ingestion** - Reads and parses transaction SMS from banks/payment apps
+
+- **Real-time Processing** - Transactions are automatically categorized as they arrive
+
+### 📊 Financial Insights
+- **Visual Analytics** - Beautiful pie charts and spending trends
+- **Category Breakdown** - Track spending across Food, Shopping, Transport, Bills, and more
+- **Transaction History** - Complete timeline of all expenses with filtering options
+- **Balance Overview** - Real-time income vs. expense tracking
+
+### 🔒 Security & Privacy
+- **Biometric Authentication** - Secure app access with fingerprint/Face ID
+- **Local Data Storage** - All data stored securely on device using AsyncStorage
+- **Permission Management** - Granular control over SMS and notification access
+
+### 🎨 User Experience
+- **Modern UI/UX** - Clean, intuitive interface with smooth animations
+- **Dark Mode Support** - Eye-friendly design with consistent theming
+- **Custom Icons** - Beautiful custom PNG icons throughout the app
+- **Animated Splash Screen** - Engaging app launch experience with pulse animations
+- **Manual Entry** - Add expenses manually with category selection
+- **Edit & Delete** - Full control over transaction management
+
+### 📱 Native Features
+- **Bottom Tab Navigation** - Easy switching between Dashboard and History
+- **Onboarding Flow** - Smooth first-time user experience
+- **Permissions Screen** - Clear explanation of required permissions
+- **Empty States** - Helpful guidance when no data is available
+
+## 🚀 Installation
+
+### Prerequisites
+
+Before you begin, ensure you have completed the [React Native Environment Setup](https://reactnative.dev/docs/set-up-your-environment):
+
+- **Node.js** 18+ and npm/yarn
+- **React Native CLI** tools
+- **Android Studio** (for Android development)
+  - Android SDK with API Level 24+
+  - NDK 27.1.12297006 (or 25.1.8937393 for Apple Silicon Macs)
+- **Xcode** (for iOS development - macOS only)
+  - iOS 13+
+  - CocoaPods
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/ERPAWANKHANDEL/SmartTracker.git
+cd SmartTracker
+```
+
+### Install Dependencies
+
+```bash
+npm install
+# or
+yarn install
+```
+
+### iOS Setup (macOS only)
+
+```bash
+# Install Ruby dependencies
+bundle install
+
+# Install CocoaPods dependencies
+cd ios
+bundle exec pod install
+cd ..
+```
+
+## 🏃 Running the App
+
+### Start Metro Bundler
+
+```bash
 npm start
-
-# OR using Yarn
+# or
 yarn start
 ```
 
-## Step 2: Build and run your app
+### Run on Android
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+```bash
 npm run android
-
-# OR using Yarn
+# or
 yarn android
 ```
 
-### iOS
+**Important for Apple Silicon Macs:**
+If you encounter NDK/CMake errors, ensure you have the correct NDK version installed:
+1. Open Android Studio → SDK Manager → SDK Tools
+2. Install NDK version 27.1.12297006 or 25.1.8937393
+3. Verify the toolchain matches your Mac architecture (darwin-arm64)
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+### Run on iOS
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+```bash
 npm run ios
-
-# OR using Yarn
+# or
 yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## 🛠️ Tech Stack
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+### Core
+- **React Native** 0.82.1 - Cross-platform mobile framework
+- **TypeScript** - Type-safe development
+- **React** 19.1.1 - UI library
 
-## Step 3: Modify your app
+### State Management
+- **Redux Toolkit** - Efficient state management
+- **React Redux** - React bindings for Redux
 
-Now that you have successfully run the app, let's make changes!
+### Navigation
+- **React Navigation** 7.x - Native navigation
+  - Bottom Tabs
+  - Native Stack Navigator
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Data & Storage
+- **AsyncStorage** - Persistent local storage
+- **Custom SMS Parser** - Transaction extraction from SMS
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+### UI & Visualization
+- **React Native SVG** - Vector graphics
+- **React Native Chart Kit** - Beautiful charts and graphs
+- **Custom Icon System** - PNG-based icon components
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+### Forms & Validation
+- **Formik** - Form management
+- **Yup** - Schema validation
 
-## Congratulations! :tada:
+### Security
+- **React Native Biometrics** - Fingerprint/Face ID authentication
+- **React Native Permissions** - Permission management
 
-You've successfully run and modified your React Native App. :partying_face:
+### Additional Libraries
+- **React Native Gesture Handler** - Native gesture handling
+- **React Native Screens** - Native screen components
+- **React Native Safe Area Context** - Safe area handling
+- **React Native Splash Screen** - Custom splash screen
 
-### Now what?
+## 📁 Project Structure
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+```
+SmartTracker/
+├── src/
+│   ├── components/          # Reusable UI components
+│   │   ├── Buttons.tsx
+│   │   ├── FeatureItem.tsx
+│   │   └── IconBadge.tsx
+│   ├── screens/             # App screens
+│   │   ├── SplashScreen.tsx
+│   │   ├── OnboardingScreen.tsx
+│   │   ├── PermissionsScreen.tsx
+│   │   ├── BiometricLockScreen.tsx
+│   │   ├── HomeScreen.tsx
+│   │   ├── ManualExpenseScreen.tsx
+│   │   └── TransactionHistoryScreen.tsx
+│   ├── services/            # Business logic
+│   │   ├── smsAndroidReader.ts
+│   │   ├── smsParser.ts
+│   │   ├── smsIngestion.ts
+│   │   └── smsStorage.ts
+│   ├── data/                # Mock data & constants
+│   │   └── transactions.ts
+│   ├── theme/               # Design system
+│   │   ├── colors.ts
+│   │   ├── spacing.ts
+│   │   └── typography.ts
+│   └── assests/             # Static assets
+│       └── icons/           # Custom PNG icons
+├── android/                 # Android native code
+├── ios/                     # iOS native code
+└── App.tsx                  # Root component
+```
 
-# Troubleshooting
+## 🔧 Configuration
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+### Android Permissions
 
-# Learn More
+The app requires the following permissions (declared in `AndroidManifest.xml`):
+- `READ_SMS` - To read transaction SMS
+- `RECEIVE_SMS` - To receive new SMS in real-time
+- `USE_BIOMETRIC` - For biometric authentication
 
-To learn more about React Native, take a look at the following resources:
+### Customization
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+**Theme Colors** - Edit `src/theme/colors.ts`:
+```typescript
+export const colors = {
+  primary: '#6200EE',
+  secondary: '#03DAC6',
+  // ... customize your brand colors
+}
+```
+
+**Categories** - Modify transaction categories in `src/data/transactions.ts`
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. NDK/CMake Errors on Apple Silicon Macs**
+```bash
+# Solution: Install correct NDK version
+# Open Android Studio → SDK Manager → SDK Tools
+# Install NDK 25.1.8937393 or 27.1.12297006
+# Ensure darwin-arm64 toolchain is installed (not darwin-x86_64)
+```
+
+**2. Metro Bundler Issues**
+```bash
+# Clear cache and restart
+npm start -- --reset-cache
+# or
+watchman watch-del-all
+npm start
+```
+
+**3. Android Build Failures**
+```bash
+# Clean build
+cd android
+./gradlew clean
+cd ..
+npm run android
+```
+
+**4. iOS Pod Installation Issues**
+```bash
+cd ios
+pod deintegrate
+pod install
+cd ..
+```
+
+**5. Permission Denied Errors**
+```bash
+# Fix file permissions
+chmod -R 755 node_modules
+```
+
+**6. Gradle Build Stuck**
+```bash
+# Stop all Gradle daemons
+cd android
+./gradlew --stop
+cd ..
+```
+
+## 📱 Supported Platforms
+
+- ✅ Android 7.0+ (API Level 24+)
+- ✅ iOS 13.0+
+
+## 🎯 Roadmap
+
+- [ ] Cloud sync and backup
+- [ ] Budget tracking and alerts
+- [ ] Recurring transaction detection
+- [ ] Export to CSV/PDF
+- [ ] Multi-currency support
+- [ ] Dark mode toggle
+- [ ] Widget support
+- [ ] Machine learning for better categorization
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 👥 Authors
+
+**ERPAWANKHANDEL**
+- GitHub: [@ERPAWANKHANDEL](https://github.com/ERPAWANKHANDEL)
+
+## 🙏 Acknowledgments
+
+- React Native community for excellent documentation
+- All open-source libraries used in this project
+- Icons and design inspiration from modern fintech apps
+
+## 📞 Support
+
+For support, please open an issue in the GitHub repository.
+
+---
+
+<div align="center">
+
+**Made with ❤️ using React Native**
+
+⭐ Star this repo if you find it helpful!
+
+</div>
