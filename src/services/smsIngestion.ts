@@ -21,11 +21,12 @@ export const ensureSmsPermission = async (): Promise<boolean> => {
 
 export const ingestSms = async (reader: SmsReader = smsAndroidReader): Promise<ParsedTransaction[]> => {
   const granted = await ensureSmsPermission();
-  console.warn(",,,,,sms permission",granted);
   
   if (!granted) return [];
   try {
     const messages = await reader.fetchAll();
+      console.warn(",,,,,sms permission",messages);
+
     return filterFinanceSms(messages);
   } catch (error) {
     console.warn('SMS ingestion failed:', error);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ReactNativeBiometrics, { BiometryTypes } from 'react-native-biometrics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SecondaryButton, PrimaryButton } from '../components/Buttons';
@@ -24,14 +25,27 @@ const BiometricLockScreen: React.FC<BiometricLockScreenProps> = ({
 }) => {
   const [biometryType, setBiometryType] = useState<string | null>(null);
   const [isAvailable, setIsAvailable] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     checkBiometricAvailability();
   }, []);
 
+  useEffect(() => {
+    // Auto-trigger authentication when not in setup mode
+    if (!isSetup && biometryType !== null) {
+      const timer = setTimeout(() => {
+        handleBiometricAuth();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSetup, biometryType]);
+
   const checkBiometricAvailability = async () => {
     try {
-      const rnBiometrics = new ReactNativeBiometrics();
+      const rnBiometrics = new ReactNativeBiometrics({
+        allowDeviceCredentials: true,
+      });
       const { available, biometryType } = await rnBiometrics.isSensorAvailable();
       
       setIsAvailable(available);
@@ -50,110 +64,112 @@ const BiometricLockScreen: React.FC<BiometricLockScreenProps> = ({
           default:
             setBiometryType('Biometric');
         }
+      } else {
+        // Even if biometric not available, device credentials (PIN/password) might be available
+        setBiometryType('Device PIN/Password');
       }
     } catch (error) {
       console.error('Error checking biometric availability:', error);
       setIsAvailable(false);
+      setBiometryType('Device PIN/Password');
     }
   };
 
   const handleBiometricAuth = async () => {
     try {
-      const rnBiometrics = new ReactNativeBiometrics();
+      const rnBiometrics = new ReactNativeBiometrics({
+        allowDeviceCredentials: true,
+      });
       const { success } = await rnBiometrics.simplePrompt({
         promptMessage: isSetup 
-          ? 'Enable biometric authentication'
+          ? 'Enable security authentication'
           : 'Authenticate to access SmartTracker',
         cancelButtonText: 'Cancel',
+        fallbackPromptMessage: 'Use device PIN or password',
       });
 
       if (success) {
         if (isSetup) {
           await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
-          Alert.alert(
-            'Success',
-            'Biometric authentication has been enabled.',
-            [{ text: 'OK', onPress: onSuccess }]
-          );
-        } else {
-          onSuccess();
         }
+        onSuccess();
       } else {
         Alert.alert(
           'Authentication Failed',
-          'Biometric authentication was not successful. Please try again.',
+          'Authentication was not successful. Please try again.',
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
-      console.error('Biometric authentication error:', error);
+      console.error('Authentication error:', error);
       Alert.alert(
         'Error',
-        'An error occurred during biometric authentication.',
+        'An error occurred during authentication.',
         [{ text: 'OK' }]
       );
     }
   };
 
   const getBiometricIcon = () => {
-    if (biometryType === 'Face ID') return '👤';
-    if (biometryType === 'Touch ID') return '👆';
-    return '🔐';
+    return 'checklist'; // Using checklist icon for security
   };
 
-  if (!isAvailable) {
+  if (!isAvailable && isSetup) {
+    // During setup, if no biometrics available, still allow device credentials
     return (
-      <View style={styles.container}>
-        <View style={styles.content}>
-          <IconBadge icon="🔒" />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+       
 
-          <Text style={styles.title}>Biometric Lock</Text>
+        <View style={styles.content}>
+          <IconBadge iconName="checklist" />
+
+          <Text style={styles.title}>Device Security</Text>
           <Text style={styles.description}>
-            Biometric authentication is not available on this device.
+            Biometric authentication is not available, but you can still use your device PIN, pattern, or password to secure the app.
           </Text>
         </View>
 
-        <PrimaryButton label="Continue" onPress={onSkip || onSuccess} />
-      </View>
+        <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
+          <PrimaryButton label="Enable Security" onPress={handleBiometricAuth} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {isSetup && onSkip && (
+        <TouchableOpacity style={styles.skipButtonTop} onPress={onSkip}>
+          <Text style={styles.skipButtonText}>Skip for Now</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.content}>
-        <IconBadge icon={getBiometricIcon()} />
+        <IconBadge iconName={getBiometricIcon()} />
         
         <Text style={styles.title}>
-          {isSetup ? 'Enable Biometric Lock' : 'Unlock SmartTracker'}
+          {isSetup ? 'Enable Device Security' : 'Unlock SmartTracker'}
         </Text>
         <Text style={styles.description}>
           {isSetup
-            ? `Use ${biometryType} to secure your financial data and quickly access the app.`
-            : `Use ${biometryType} to unlock and access your financial data.`}
+            ? `Use ${biometryType} or device PIN/password to secure your financial data and quickly access the app.`
+            : `Use ${biometryType} or device PIN/password to unlock and access your financial data.`}
         </Text>
 
         <View style={styles.featureList}>
-          <FeatureItem emoji="⚡" text="Quick and secure access" />
-          <FeatureItem emoji="🔐" text="Protect sensitive data" />
-          <FeatureItem emoji="🚀" text="Seamless user experience" />
+          <FeatureItem iconName="profit" text="Quick and secure access" />
+          <FeatureItem iconName="checklist" text="Protect sensitive data" />
+          <FeatureItem iconName="transaction" text="PIN/Password fallback available" />
         </View>
       </View>
 
-      <View style={styles.buttonContainer}>
-        {(isSetup || onSkip) && (
-          <SecondaryButton
-            label={isSetup ? 'Skip for Now' : 'Cancel'}
-            onPress={onSkip || onSuccess}
-            style={styles.buttonSpacing}
-          />
-        )}
-
+      <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
         <PrimaryButton
-          label={isSetup ? `Enable ${biometryType}` : 'Authenticate'}
+          label={isSetup ? 'Enable Security' : 'Authenticate'}
           onPress={handleBiometricAuth}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -162,11 +178,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xl,
   },
   content: {
     flex: 1,
+    paddingTop: spacing.xl,
+  },
+  skipButtonTop: {
+    position: 'absolute',
+    top: spacing.xl + spacing.md,
+    right: spacing.xl,
+    zIndex: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  skipButtonText: {
+    fontSize: fontSizes.md,
+    fontWeight: fontWeights.semibold,
+    color: colors.primary,
   },
   title: {
     fontSize: fontSizes['3xl'],
@@ -188,10 +216,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   buttonContainer: {
-    marginTop: spacing.md,
-  },
-  buttonSpacing: {
-    marginBottom: spacing.md,
+    paddingTop: spacing.md,
   },
 });
 

@@ -31,6 +31,11 @@ const transactionsSlice = createSlice({
     addSmsTransaction: (state, action: PayloadAction<ParsedTransaction>) => {
       state.smsTransactions.push(action.payload);
     },
+    deleteSmsTransaction: (state, action: PayloadAction<{ date: string; amount: number }>) => {
+      state.smsTransactions = state.smsTransactions.filter(
+        t => !(t.date === action.payload.date && t.amount === action.payload.amount)
+      );
+    },
     clearSmsTransactions: (state) => {
       state.smsTransactions = [];
     },
@@ -60,6 +65,7 @@ const transactionsSlice = createSlice({
 export const {
   setSmsTransactions,
   addSmsTransaction,
+  deleteSmsTransaction,
   clearSmsTransactions,
   setManualTransactions,
   addManualTransaction,

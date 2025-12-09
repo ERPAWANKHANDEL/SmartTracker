@@ -6,7 +6,7 @@ import { Formik, FormikProps } from 'formik';
 import * as Yup from 'yup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch } from '../store/hooks';
-import { addManualTransaction } from '../store/transactionsSlice';
+import { addManualTransaction, updateManualTransaction } from '../store/transactionsSlice';
 
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { Toast } from '../components/Toast';
@@ -44,9 +44,11 @@ const validationSchema = Yup.object().shape({
   notes: Yup.string().max(120, 'Keep notes under 120 characters'),
 });
 
-const ManualExpenseScreen: React.FC<any> = ({ navigation }) => {
+const ManualExpenseScreen: React.FC<any> = ({ navigation, route }) => {
   const today = new Date().toISOString().slice(0, 10);
   const dispatch = useAppDispatch();
+  const editTransaction = route?.params?.transaction;
+  const isEditMode = !!editTransaction;
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -59,17 +61,24 @@ const ManualExpenseScreen: React.FC<any> = ({ navigation }) => {
     setToastVisible(true);
   };
 
-  const initialValues: FormValues = {
-    category: '',
-    amount: '',
-    date: today,
-    notes: '',
-  };
+  const initialValues: FormValues = isEditMode
+    ? {
+        category: editTransaction.category,
+        amount: Math.abs(editTransaction.amount).toString(),
+        date: editTransaction.date,
+        notes: editTransaction.description || editTransaction.notes || '',
+      }
+    : {
+        category: '',
+        amount: '',
+        date: today,
+        notes: '',
+      };
 
   const handleSave = async (values: FormValues) => {
     try {
-      const newTransaction = {
-        id: `manual-${Date.now()}`,
+      const transaction = {
+        id: isEditMode ? editTransaction.id : `manual-${Date.now()}`,
         category: values.category,
         amount: Number(values.amount),
         date: values.date,
@@ -77,16 +86,34 @@ const ManualExpenseScreen: React.FC<any> = ({ navigation }) => {
         type: 'debit' as const,
       };
 
-      // Dispatch to Redux store
-      dispatch(addManualTransaction(newTransaction));
+      if (isEditMode) {
+        // Update existing transaction
+        dispatch(updateManualTransaction(transaction));
 
-      // Also save to AsyncStorage for persistence
-      const existingData = await AsyncStorage.getItem('@manual_transactions');
-      const existingTransactions = existingData ? JSON.parse(existingData) : [];
-      const updatedTransactions = [...existingTransactions, newTransaction];
-      await AsyncStorage.setItem('@manual_transactions', JSON.stringify(updatedTransactions));
+        // Update in AsyncStorage
+        const existingData = await AsyncStorage.getItem('@manual_transactions');
+        if (existingData) {
+          const existingTransactions = JSON.parse(existingData);
+          const index = existingTransactions.findIndex((t: any) => t.id === transaction.id);
+          if (index !== -1) {
+            existingTransactions[index] = transaction;
+            await AsyncStorage.setItem('@manual_transactions', JSON.stringify(existingTransactions));
+          }
+        }
+        showToast('Transaction updated successfully', 'success');
+      } else {
+        // Add new transaction
+        dispatch(addManualTransaction(transaction));
 
-      showToast('✓ Expense saved successfully', 'success');
+        // Save to AsyncStorage for persistence
+        const existingData = await AsyncStorage.getItem('@manual_transactions');
+        const existingTransactions = existingData ? JSON.parse(existingData) : [];
+        const updatedTransactions = [...existingTransactions, transaction];
+        await AsyncStorage.setItem('@manual_transactions', JSON.stringify(updatedTransactions));
+
+        showToast('Expense saved successfully', 'success');
+      }
+      
       setTimeout(() => navigation.goBack(), 1500);
     } catch (error) {
       console.error('Failed to save transaction:', error);
@@ -97,8 +124,10 @@ const ManualExpenseScreen: React.FC<any> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Manual Add Expense</Text>
-        <Text style={styles.subtitle}>Log a new expense with category, amount, date, and notes.</Text>
+        <Text style={styles.title}>{isEditMode ? 'Edit' : 'Manual Add'} Expense</Text>
+        <Text style={styles.subtitle}>
+          {isEditMode ? 'Update the expense details below.' : 'Log a new expense with category, amount, date, and notes.'}
+        </Text>
 
         <Formik
           initialValues={initialValues}

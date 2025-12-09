@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Dimensions, Animated, TouchableOpacity } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -10,7 +11,7 @@ const { width } = Dimensions.get('window');
 
 interface OnboardingItem {
   id: string;
-  emoji: string;
+  iconName: string;
   title: string;
   description: string;
 }
@@ -22,19 +23,19 @@ interface OnboardingScreenProps {
 const onboardingData: OnboardingItem[] = [
   {
     id: '1',
-    emoji: '📱',
+    iconName: 'transaction',
     title: 'Automatic SMS Tracking',
     description: 'SmartTracker automatically reads transaction SMS from your bank to track expenses effortlessly.',
   },
   {
     id: '2',
-    emoji: '📊',
+    iconName: 'dashboard',
     title: 'Smart Analytics',
     description: 'Get insights into your spending patterns with beautiful charts and detailed breakdowns.',
   },
   {
     id: '3',
-    emoji: '🔒',
+    iconName: 'checklist',
     title: 'Secure & Private',
     description: 'Your financial data stays on your device. We prioritize your privacy and security.',
   },
@@ -44,6 +45,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const slidesRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
 
   const viewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
@@ -63,7 +65,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
 
   const renderItem = ({ item }: { item: OnboardingItem }) => (
     <View style={styles.slide}>
-      <IconBadge icon={item.emoji} size={150} style={styles.emojiBadge} />
+      <IconBadge iconName={item.iconName} size={150} style={styles.emojiBadge} />
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.description}>{item.description}</Text>
     </View>
@@ -97,7 +99,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {currentIndex < onboardingData.length - 1 && (
+        <TouchableOpacity style={styles.skipButtonTop} onPress={() => onComplete()}>
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </TouchableOpacity>
+      )}
+      
       <View style={styles.flatListContainer}>
         <FlatList
           data={onboardingData}
@@ -118,14 +126,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
         />
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
         <Paginator />
         
         <View style={styles.buttonContainer}>
-          {currentIndex < onboardingData.length - 1 && (
-            <SecondaryButton label="Skip" onPress={() => onComplete()} style={styles.skipButton} />
-          )}
-          
           <PrimaryButton
             label={currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Next'}
             onPress={scrollTo}
@@ -133,7 +137,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
           />
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -172,8 +176,20 @@ const styles = StyleSheet.create({
   footer: {
     flex: 1,
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
     justifyContent: 'space-between',
+  },
+  skipButtonTop: {
+    position: 'absolute',
+    top: spacing.xl + spacing.md,
+    right: spacing.xl,
+    zIndex: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  skipButtonText: {
+    fontSize: fontSizes.md,
+    fontWeight: fontWeights.semibold,
+    color: colors.primary,
   },
   paginatorContainer: {
     flexDirection: 'row',
@@ -189,15 +205,11 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  skipButton: {
-    paddingHorizontal: spacing.lg,
   },
   nextButton: {
     flex: 1,
-    marginLeft: spacing.md,
   },
 });
 

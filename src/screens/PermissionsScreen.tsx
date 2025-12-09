@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Platform, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { SecondaryButton, PrimaryButton } from '../components/Buttons';
 import { FeatureItem } from '../components/FeatureItem';
@@ -18,6 +19,7 @@ interface PermissionsScreenProps {
 const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => {
   const [isLoadingSms, setIsLoadingSms] = useState(false);
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
 
   const requestSmsPermission = async () => {
     if (Platform.OS === 'android') {
@@ -75,14 +77,6 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
       
       // Dispatch to Redux store
       dispatch(setSmsTransactions(transactions));
-      
-      if (transactions.length > 0) {
-        Alert.alert(
-          'Success!',
-          `Found ${transactions.length} financial transactions from your SMS inbox. They're ready to track!`,
-          [{ text: 'Great!' }]
-        );
-      }
     } catch (error) {
       console.error('Failed to auto-read SMS:', error);
     } finally {
@@ -96,31 +90,24 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
     if (granted) {
       // Automatically read SMS after permission is granted
       await autoReadSms();
-      Alert.alert(
-        'Permission Granted',
-        'SmartTracker can now read your transaction SMS to track expenses automatically.',
-        [{ text: 'Continue', onPress: onComplete }]
-      );
-    } else {
-      onComplete();
     }
+    
+    // Move to next screen regardless of permission status
+    onComplete();
   };
 
   const handleSkip = () => {
-    Alert.alert(
-      'Skip Permissions',
-      'You can enable SMS reading later in settings. You will need to manually add transactions.',
-      [
-        { text: 'Go Back', style: 'cancel' },
-        { text: 'Skip', onPress: onComplete, style: 'destructive' },
-      ]
-    );
+    onComplete();
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <TouchableOpacity style={styles.skipButtonTop} onPress={handleSkip}>
+        <Text style={styles.skipButtonText}>Skip for Now</Text>
+      </TouchableOpacity>
+
       <View style={styles.content}>
-        <IconBadge icon="📨" />
+        <IconBadge iconName="transaction" />
 
         <Text style={styles.title}>SMS Permission</Text>
         <Text style={styles.description}>
@@ -128,9 +115,9 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
         </Text>
 
         <View style={styles.featureList}>
-          <FeatureItem emoji="✅" text="Automatically track bank transactions" />
-          <FeatureItem emoji="🔒" text="SMS data stays on your device" />
-          <FeatureItem emoji="⚡" text="No manual entry required" />
+          <FeatureItem iconName="transaction" text="Automatically track bank transactions" />
+          <FeatureItem iconName="checklist" text="SMS data stays on your device" />
+          <FeatureItem iconName="profit" text="No manual entry required" />
         </View>
 
         <Text style={styles.note}>
@@ -138,8 +125,7 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
         </Text>
       </View>
 
-      <View style={styles.buttonContainer}>
-        <SecondaryButton label="Skip for Now" onPress={handleSkip} style={styles.buttonSpacing} />
+      <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
         <PrimaryButton 
           label={isLoadingSms ? "Loading SMS..." : "Allow SMS Access"} 
           onPress={handleContinue}
@@ -149,7 +135,7 @@ const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ onComplete }) => 
           <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.sm }} />
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -158,11 +144,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xl,
   },
   content: {
     flex: 1,
+    paddingTop: spacing.xl,
+  },
+  skipButtonTop: {
+    position: 'absolute',
+    top: spacing.xl + spacing.md,
+    right: spacing.xl,
+    zIndex: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  skipButtonText: {
+    fontSize: fontSizes.md,
+    fontWeight: fontWeights.semibold,
+    color: colors.primary,
   },
   title: {
     fontSize: fontSizes['3xl'],
@@ -191,10 +189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   buttonContainer: {
-    marginTop: spacing.md,
-  },
-  buttonSpacing: {
-    marginBottom: spacing.md,
+    paddingTop: spacing.md,
   },
 });
 

@@ -6,6 +6,7 @@ import { PieChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
+import { Icon } from '../components/Icon';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { fontSizes, fontWeights } from '../theme/typography';
@@ -13,6 +14,7 @@ import { getStoredSmsTransactions } from '../services/smsStorage';
 import { ingestSms } from '../services/smsIngestion';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSmsTransactions, setManualTransactions } from '../store/transactionsSlice';
+import { setAuthenticated } from '../store/authSlice';
 import {
   selectTotalBalance,
   selectMonthlyStats,
@@ -47,6 +49,10 @@ const HomeScreen: React.FC = () => {
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
   const [showToast, setShowToast] = useState(false);
   const toastOpacity = useState(new Animated.Value(0))[0];
+  
+  // Animation values
+  const fadeAnim = useState(new Animated.Value(0))[0];
+  const slideAnim = useState(new Animated.Value(30))[0];
 
   // Show toast notification
   const showToastNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -72,6 +78,20 @@ const HomeScreen: React.FC = () => {
   // Check permissions on mount
   useEffect(() => {
     checkAndRequestPermissions();
+    
+    // Entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
   // Load transactions from storage only once on mount
@@ -144,12 +164,11 @@ const HomeScreen: React.FC = () => {
     try {
       console.log('Fetching SMS messages...');
       const transactions = await ingestSms();
-      console.log(`Loaded ${transactions.length} SMS transactions`);
       dispatch(setSmsTransactions(transactions));
       
       if (transactions.length > 0) {
         showToastNotification(
-          `✓ Loaded ${transactions.length} financial transactions from SMS`,
+          `Loaded ${transactions.length} financial transactions from SMS`,
           'success'
         );
       }
@@ -227,6 +246,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleExit = () => {
+    dispatch(setAuthenticated(false));
     BackHandler.exitApp();
   };
 
@@ -246,18 +266,18 @@ const HomeScreen: React.FC = () => {
   // Prepare data for pie chart
   const getPieChartData = () => {
     return categorySpending.map(cat => ({
-      name: cat.category.length > 12 ? cat.category.slice(0, 12) + '...' : cat.category,
+      name: cat.category,
       amount: cat.total,
       color: cat.color,
       legendFontColor: colors.text,
-      legendFontSize: 12,
+      legendFontSize: 13,
     }));
   };
 
   const pieChartData = getPieChartData();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View>
@@ -265,33 +285,55 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.headerSubtitle}>Your Financial Dashboard</Text>
           </View>
           <TouchableOpacity onPress={handleExit} style={styles.exitButton}>
-            <Text style={styles.exitButtonText}>✕ Exit</Text>
+            <Text style={styles.exitButtonText}>× Exit</Text>
           </TouchableOpacity>
         </View>
 
         {/* Total Balance Card */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Total Bank Balance</Text>
+        <Animated.View style={[styles.balanceCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          <View style={styles.balanceCardHeader}>
+            <View style={styles.balanceIconContainer}>
+              <Icon name="transaction" size={20} tintColor="#fff" />
+            </View>
+            <Text style={styles.balanceLabel}>Total Bank Balance</Text>
+          </View>
           <Text style={styles.balanceAmount}>{formatAmount(totalBalance)}</Text>
-          <Text style={styles.balanceSubtext}>
-            {smsTransactions.length + manualTransactions.length} transactions tracked
-          </Text>
-        </View>
+          <View style={styles.balanceFooter}>
+            <View style={styles.balanceBadge}>
+              <View style={styles.badgeContent}>
+                <Icon name="dashboard" size={12} tintColor="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.balanceBadgeText}>
+                  {smsTransactions.length + manualTransactions.length} transactions
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
 
         {/* Monthly Stats */}
-        <View style={styles.quickStats}>
-          <View style={[styles.statCard, styles.statSpacer]}>
-            <Text style={styles.statEmoji}>💰</Text>
-            <Text style={styles.statValue}>{formatAmount(monthlyStats.income)}</Text>
-            <Text style={styles.statLabel}>This Month Income</Text>
+        <Animated.View style={[styles.quickStats, { opacity: fadeAnim }]}>
+          <View style={[styles.statCard, styles.statSpacer, styles.incomeCard]}>
+            <View style={styles.statIconContainer}>
+              <Icon name="profit" size={24} tintColor={colors.success} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statLabel}>Income</Text>
+              <Text style={styles.statValue}>{formatAmount(monthlyStats.income)}</Text>
+              <Text style={styles.statPeriod}>This Month</Text>
+            </View>
           </View>
 
-          <View style={styles.statCard}>
-            <Text style={styles.statEmoji}>💸</Text>
-            <Text style={styles.statValue}>{formatAmount(monthlyStats.expenses)}</Text>
-            <Text style={styles.statLabel}>This Month Expenses</Text>
+          <View style={[styles.statCard, styles.expenseCard]}>
+            <View style={styles.statIconContainer}>
+              <Icon name="arrow" size={24}  style={{ transform: [{ rotate: '180deg' }] }} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statLabel}>Expenses</Text>
+              <Text style={styles.statValue}>{formatAmount(monthlyStats.expenses)}</Text>
+              <Text style={styles.statPeriod}>This Month</Text>
+            </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Category-wise Spending */}
         {categorySpending.length > 0 && (
@@ -303,15 +345,16 @@ const HomeScreen: React.FC = () => {
               <PieChart
                 data={pieChartData}
                 width={screenWidth - (spacing.xl * 2)}
-                height={220}
+                height={260}
                 chartConfig={{
                   color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                   labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                 }}
                 accessor="amount"
                 backgroundColor="transparent"
-                paddingLeft="15"
+                paddingLeft="70"
                 absolute
+                hasLegend={false}
               />
             </View>
 
@@ -342,13 +385,15 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>Recent Transactions</Text>
             <SecondaryButton
               label="View All"
-              onPress={() => navigation.navigate('TransactionHistory' as never)}
+              onPress={() => navigation.navigate('History' as never)}
               style={styles.viewAllButton}
             />
           </View>
           {recentTransactions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>📋</Text>
+              <View style={styles.emptyIconContainer}>
+                <Icon name="checklist" size={56} tintColor={colors.textTertiary} />
+              </View>
               <Text style={styles.emptyText}>No transactions yet</Text>
               <Text style={styles.emptySubtext}>
                 Add transactions manually or enable SMS reading
@@ -358,16 +403,32 @@ const HomeScreen: React.FC = () => {
             <View style={styles.transactionsList}>
               {recentTransactions.map((txn, idx) => (
                 <View key={idx} style={styles.transactionItem}>
-                  <View style={styles.transactionLeft}>
-                    <Text style={styles.transactionDesc}>{txn.description}</Text>
-                    <Text style={styles.transactionDate}>{formatDate(txn.date)}</Text>
+                  <View style={styles.transactionIconWrapper}>
+                    <View style={[
+                      styles.transactionIconContainer,
+                      { backgroundColor: txn.type === 'credit' ? '#DEF7EC' : '#FEE2E2' }
+                    ]}>
+                      <Text style={styles.transactionIcon}>
+                        {txn.type === 'credit' ? '↓' : '↑'}
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={[
-                    styles.transactionAmount,
-                    { color: txn.type === 'credit' ? colors.success : colors.error }
-                  ]}>
-                    {txn.type === 'credit' ? '+' : '-'}{formatAmount(Math.abs(txn.amount))}
-                  </Text>
+                  <View style={styles.transactionLeft}>
+                    <Text style={styles.transactionDesc} numberOfLines={1}>{txn.description}</Text>
+                    <View style={styles.transactionDateRow}>
+                      <Icon name="history" size={10} tintColor={colors.textTertiary} style={{ marginRight: 4 }} />
+                      <Text style={styles.transactionDate}>{formatDate(txn.date)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.transactionRight}>
+                    <Text style={[
+                      styles.transactionAmount,
+                      { color: txn.type === 'credit' ? colors.success : colors.error }
+                    ]}>
+                      {txn.type === 'credit' ? '+' : '-'}{formatAmount(Math.abs(txn.amount))}
+                    </Text>
+                    <Text style={styles.transactionType}>{txn.type}</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -391,7 +452,9 @@ const HomeScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalIcon}>📱</Text>
+              <View style={styles.modalIconContainer}>
+                <Icon name="transaction" size={48} tintColor={colors.primary} />
+              </View>
               <Text style={styles.modalTitle}>
                 {permissionBlocked ? 'Permission Required' : 'Enable SMS Reading'}
               </Text>
@@ -405,19 +468,27 @@ const HomeScreen: React.FC = () => {
 
             <View style={styles.modalFeatures}>
               <View style={styles.featureRow}>
-                <Text style={styles.featureBullet}>✓</Text>
+                <View style={styles.checkmark}>
+                  <Text style={styles.checkmarkText}>✓</Text>
+                </View>
                 <Text style={styles.featureText}>Auto-track bank transactions</Text>
               </View>
               <View style={styles.featureRow}>
-                <Text style={styles.featureBullet}>✓</Text>
+                <View style={styles.checkmark}>
+                  <Text style={styles.checkmarkText}>✓</Text>
+                </View>
                 <Text style={styles.featureText}>Real-time expense monitoring</Text>
               </View>
               <View style={styles.featureRow}>
-                <Text style={styles.featureBullet}>✓</Text>
+                <View style={styles.checkmark}>
+                  <Text style={styles.checkmarkText}>✓</Text>
+                </View>
                 <Text style={styles.featureText}>40+ banks supported</Text>
               </View>
               <View style={styles.featureRow}>
-                <Text style={styles.featureBullet}>✓</Text>
+                <View style={styles.checkmark}>
+                  <Text style={styles.checkmarkText}>✓</Text>
+                </View>
                 <Text style={styles.featureText}>Your data stays private</Text>
               </View>
             </View>
@@ -487,7 +558,7 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -495,9 +566,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: spacing.md,
   },
   scrollContent: {
     padding: spacing.xl,
+    backgroundColor:colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -537,34 +610,69 @@ const styles = StyleSheet.create({
   },
   balanceCard: {
     backgroundColor: colors.primary,
-    borderRadius: spacing.lg,
+    borderRadius: spacing.xl,
     padding: spacing.xl,
     marginBottom: spacing.lg,
-    shadowColor: '#000',
+    shadowColor: colors.primary,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  balanceCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  balanceIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  balanceIcon: {
+    fontSize: 20,
   },
   balanceLabel: {
     fontSize: fontSizes.sm,
     color: colors.surface,
-    opacity: 0.9,
-    marginBottom: spacing.sm,
+    opacity: 0.95,
+    fontWeight: fontWeights.medium,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   balanceAmount: {
-    fontSize: 40,
+    fontSize: 42,
     fontWeight: fontWeights.bold,
     color: colors.surface,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
+    letterSpacing: -1,
   },
-  balanceSubtext: {
-    fontSize: fontSizes.sm,
+  balanceFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  balanceBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.lg,
+  },
+  badgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  balanceBadgeText: {
+    fontSize: fontSizes.xs,
     color: colors.surface,
-    opacity: 0.8,
+    fontWeight: fontWeights.medium,
   },
   quickStats: {
     flexDirection: 'row',
@@ -576,30 +684,56 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: spacing.md,
-    padding: spacing.lg,
-    alignItems: 'center',
+    borderRadius: spacing.lg,
+    padding: spacing.md,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  statEmoji: {
-    fontSize: 32,
+  incomeCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+  },
+  expenseCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: spacing.md,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  statValue: {
-    fontSize: fontSizes.xl,
-    fontWeight: fontWeights.bold,
-    color: colors.text,
-    marginBottom: spacing.xs,
+  statEmoji: {
+    fontSize: 24,
+  },
+  statContent: {
+    flex: 1,
   },
   statLabel: {
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
+    color: colors.textTertiary,
+    fontWeight: fontWeights.medium,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statValue: {
+    fontSize: fontSizes.lg,
+    fontWeight: fontWeights.bold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  statPeriod: {
+    fontSize: fontSizes.xs,
     color: colors.textTertiary,
   },
   section: {
@@ -615,6 +749,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xl,
     fontWeight: fontWeights.bold,
     color: colors.text,
+    letterSpacing: -0.5,
   },
   viewAllButton: {
     paddingVertical: spacing.xs,
@@ -622,36 +757,44 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     backgroundColor: colors.surface,
-    borderRadius: spacing.md,
-    padding: spacing.md,
+    borderRadius: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xs,
     marginBottom: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   emptyState: {
     backgroundColor: colors.surface,
-    borderRadius: spacing.md,
+    borderRadius: spacing.lg,
     padding: spacing.xxl,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: spacing.sm,
+  emptyIconContainer: {
+    marginBottom: spacing.md,
+    opacity: 0.5,
   },
   emptyText: {
-    fontSize: fontSizes.md,
-    fontWeight: fontWeights.semibold,
+    fontSize: fontSizes.lg,
+    fontWeight: fontWeights.bold,
     color: colors.text,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   emptySubtext: {
     fontSize: fontSizes.sm,
     color: colors.textTertiary,
     textAlign: 'center',
+    lineHeight: 20,
   },
   addButton: {
     marginTop: spacing.lg,
@@ -661,11 +804,17 @@ const styles = StyleSheet.create({
   },
   categoryContainer: {
     backgroundColor: colors.surface,
-    borderRadius: spacing.md,
-    padding: spacing.md,
+    borderRadius: spacing.lg,
+    padding: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   categoryItem: {
     marginBottom: spacing.md,
+    flex:1,
   },
   categoryHeader: {
     flexDirection: 'row',
@@ -711,35 +860,66 @@ const styles = StyleSheet.create({
   },
   transactionsList: {
     backgroundColor: colors.surface,
-    borderRadius: spacing.md,
-    padding: spacing.sm,
+    borderRadius: spacing.lg,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   transactionItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
   },
+  transactionIconWrapper: {
+    marginRight: spacing.sm,
+  },
+  transactionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transactionIcon: {
+    fontSize: 20,
+    fontWeight: fontWeights.bold,
+  },
   transactionLeft: {
     flex: 1,
+    marginRight: spacing.sm,
   },
   transactionDesc: {
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.sm,
     color: colors.text,
-    fontWeight: fontWeights.medium,
-    marginBottom: spacing.xs,
+    fontWeight: fontWeights.semibold,
+    marginBottom: 2,
+  },
+  transactionDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   transactionDate: {
     fontSize: fontSizes.xs,
     color: colors.textTertiary,
   },
+  transactionRight: {
+    alignItems: 'flex-end',
+  },
   transactionAmount: {
     fontSize: fontSizes.md,
     fontWeight: fontWeights.bold,
-    marginLeft: spacing.sm,
+    marginBottom: 2,
+  },
+  transactionType: {
+    fontSize: fontSizes.xs,
+    color: colors.textTertiary,
+    textTransform: 'capitalize',
   },
   // Modal styles
   modalOverlay: {
@@ -765,9 +945,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalIcon: {
-    fontSize: 48,
+  modalIconContainer: {
     marginBottom: spacing.sm,
+  },
+  checkmark: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  checkmarkText: {
+    color: colors.surface,
+    fontSize: fontSizes.xs,
+    fontWeight: fontWeights.bold,
   },
   modalTitle: {
     fontSize: fontSizes['2xl'],
@@ -793,12 +986,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  featureBullet: {
-    fontSize: fontSizes.lg,
-    color: colors.success,
-    marginRight: spacing.sm,
-    fontWeight: fontWeights.bold,
-  },
+
   featureText: {
     fontSize: fontSizes.sm,
     color: colors.text,
